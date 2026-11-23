@@ -1,0 +1,23 @@
+{
+  "experiment": "05_nn_ekf_gnss_learning",
+  "training_time_sec": 37.677316665649414,
+  "dataset_split": {
+    "train_percent": 70,
+    "val_percent": 15,
+    "test_percent": 15
+  },
+  "ground_truth_used_in_model": false,
+  "overall_results": {
+    "traditional_ekf_ate_m": 1.2470184531034438,
+    "nn_ekf_ate_m": 1.357610555282045,
+    "improvement_percent": -8.868521704981314
+  },
+  "held_out_test_set_results": {
+    "traditional_ekf_ate_m": 1.005088516747058,
+    "nn_ekf_ate_m": 0.8997697975616128,
+    "improvement_percent": 10.478551633074707,
+    "nn_ekf_rmse_x_m": 0.5344736127472035,
+    "nn_ekf_rmse_y_m": 0.49398993639108374,
+    "nn_ekf_rmse_z_m": 0.5290534837096824
+  }
+}

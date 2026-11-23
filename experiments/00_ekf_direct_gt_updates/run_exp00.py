@@ -1,0 +1,256 @@
+"""
+Experiment 0: EKF with Direct Ground Truth Updates (Initial Benchmark).
+
+Executes:
+  1. Full Direct Ground Truth Update EKF (16.5 Hz GT updates)
+  2. Open-Loop IMU Dead-Reckoning Baseline (No updates)
+  3. Ground Truth Subsampling Sensitivity Study (16.5 Hz, 1.65 Hz, 0.33 Hz, 0.16 Hz GT updates)
+"""
+
+import os
+import json
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from scipy.spatial.transform import Rotation as R
+
+plt.style.use('seaborn-v0_8-whitegrid' if 'seaborn-v0_8-whitegrid' in plt.style.available else 'default')
+plt.rcParams['font.sans-serif'] = 'DejaVu Sans'
+
+
+def skew(v: np.ndarray) -> np.ndarray:
+    return np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+
+
+class ErrorStateEKF:
+    def __init__(self, p0, v0, R0, sigma_a=0.08, sigma_g=0.005, sigma_gt=0.01, g_val=9.81):
+        self.p = np.array(p0, dtype=np.float64)
+        self.v = np.array(v0, dtype=np.float64)
+        self.rot = R.from_matrix(R0)
+        self.ba = np.zeros(3, dtype=np.float64)
+        self.bg = np.zeros(3, dtype=np.float64)
+        self.g_vec = np.array([0.0, 0.0, -g_val])
+
+        self.sigma_a = sigma_a
+        self.sigma_g = sigma_g
+        self.sigma_gt = sigma_gt
+
+        self.P = np.eye(15, dtype=np.float64) * 1e-2
+        self.P[3:6, 3:6] *= 10.0
+        self.P[6:9, 6:9] *= 10.0
+
+    def predict(self, w_m, a_m, dt):
+        if dt <= 0 or dt > 1.0: return
+        w_hat = w_m - self.bg
+        a_hat = a_m - self.ba
+
+        R_mat = self.rot.as_matrix()
+        a_world = R_mat @ a_hat + self.g_vec
+
+        self.p += self.v * dt + 0.5 * a_world * (dt ** 2)
+        self.v += a_world * dt
+        self.rot = self.rot * R.from_rotvec(w_hat * dt)
+
+        Fc = np.zeros((15, 15), dtype=np.float64)
+        Fc[0:3, 3:6] = np.eye(3)
+        Fc[3:6, 6:9] = -R_mat @ skew(a_hat)
+        Fc[3:6, 9:12] = -R_mat
+        Fc[6:9, 6:9] = -skew(w_hat)
+        Fc[6:9, 12:15] = -np.eye(3)
+
+        F_x = np.eye(15) + Fc * dt + 0.5 * (Fc @ Fc) * (dt ** 2)
+
+        Q_d = np.zeros((15, 15), dtype=np.float64)
+        np.fill_diagonal(Q_d[0:3, 0:3], (0.001 * dt) ** 2)
+        np.fill_diagonal(Q_d[3:6, 3:6], (self.sigma_a * dt) ** 2)
+        np.fill_diagonal(Q_d[6:9, 6:9], (self.sigma_g * dt) ** 2)
+        np.fill_diagonal(Q_d[9:12, 9:12], (0.001 * np.sqrt(dt)) ** 2)
+        np.fill_diagonal(Q_d[12:15, 12:15], (0.0001 * np.sqrt(dt)) ** 2)
+
+        self.P = F_x @ self.P @ F_x.T + Q_d
+
+    def update_position(self, p_gt):
+        H = np.zeros((3, 15), dtype=np.float64)
+        H[0:3, 0:3] = np.eye(3)
+
+        R_m = (self.sigma_gt ** 2) * np.eye(3)
+        z = p_gt - self.p
+        S = H @ self.P @ H.T + R_m
+        K = self.P @ H.T @ np.linalg.inv(S)
+
+        dx = K @ z
+        I_KH = np.eye(15) - K @ H
+        self.P = I_KH @ self.P @ I_KH.T + K @ R_m @ K.T
+
+        self.p += dx[0:3]
+        self.v += dx[3:6]
+        self.rot = self.rot * R.from_rotvec(dx[6:9])
+        self.ba += dx[9:12]
+        self.bg += dx[12:15]
+
+
+def run_gt_ekf(imu, gt, step_size=1):
+    gt_sub = gt.iloc[::step_size].reset_index(drop=True)
+
+    a_mean = imu[['a_x', 'a_y', 'a_z']].iloc[:100].mean().values
+    u_acc = a_mean / np.linalg.norm(a_mean)
+    u_z = np.array([0, 0, 1.0])
+    v_rot = np.cross(u_acc, u_z)
+    s_rot = np.linalg.norm(v_rot)
+    c_rot = np.dot(u_acc, u_z)
+    vx = skew(v_rot)
+    R_init = np.eye(3) + vx + (vx @ vx) * ((1 - c_rot) / (s_rot**2))
+
+    p0 = gt[['p_x', 'p_y', 'p_z']].iloc[0].values
+    ekf = ErrorStateEKF(p0=p0, v0=np.zeros(3), R0=R_init)
+
+    imu_events = [(row.timestamp_ns, 'imu', np.array([row.w_x, row.w_y, row.w_z]), np.array([row.a_x, row.a_y, row.a_z])) for row in imu.itertuples()]
+    gt_events = [(row.timestamp_ns, 'gt', np.array([row.p_x, row.p_y, row.p_z])) for row in gt_sub.itertuples()]
+
+    all_events = sorted(imu_events + gt_events, key=lambda x: x[0])
+    prev_t = all_events[0][0]
+
+    history = []
+    for ev in all_events:
+        t_ns = ev[0]
+        dt = (t_ns - prev_t) / 1e9
+        prev_t = t_ns
+
+        if ev[1] == 'imu':
+            ekf.predict(ev[2], ev[3], dt)
+            history.append({
+                'timestamp_ns': t_ns,
+                't_sec': (t_ns - all_events[0][0]) / 1e9,
+                'p_x': ekf.p[0], 'p_y': ekf.p[1], 'p_z': ekf.p[2],
+                'v_x': ekf.v[0], 'v_y': ekf.v[1], 'v_z': ekf.v[2],
+                'ba_x': ekf.ba[0], 'ba_y': ekf.ba[1], 'ba_z': ekf.ba[2],
+                'bg_x': ekf.bg[0], 'bg_y': ekf.bg[1], 'bg_z': ekf.bg[2]
+            })
+        elif ev[1] == 'gt':
+            ekf.update_position(ev[2])
+
+    res_df = pd.DataFrame(history)
+
+    gt_x = np.interp(res_df['timestamp_ns'], gt['timestamp_ns'], gt['p_x'])
+    gt_y = np.interp(res_df['timestamp_ns'], gt['timestamp_ns'], gt['p_y'])
+    gt_z = np.interp(res_df['timestamp_ns'], gt['timestamp_ns'], gt['p_z'])
+    gt_interp = np.column_stack([gt_x, gt_y, gt_z])
+    est = res_df[['p_x', 'p_y', 'p_z']].values
+
+    err = est - gt_interp
+    euc_err = np.sqrt(np.sum(err**2, axis=1))
+    ate_rmse = float(np.sqrt(np.mean(euc_err**2)))
+    rmse_xyz = np.sqrt(np.mean(err**2, axis=0))
+
+    metrics = {
+        'ate_rmse_m': ate_rmse,
+        'mean_error_m': float(np.mean(euc_err)),
+        'median_error_m': float(np.median(euc_err)),
+        'max_error_m': float(np.max(euc_err)),
+        'rmse_x_m': float(rmse_xyz[0]),
+        'rmse_y_m': float(rmse_xyz[1]),
+        'rmse_z_m': float(rmse_xyz[2]),
+        'euc_errors': euc_err
+    }
+    return res_df, metrics
+
+
+def main():
+    exp_dir = os.path.dirname(__file__)
+    data_dir = os.path.abspath(os.path.join(exp_dir, '..', '..', 'MH_01_easy.bag', 'extracted_ros1_data'))
+
+    imu_df = pd.read_csv(os.path.join(data_dir, 'imu.csv'))
+    gt_df = pd.read_csv(os.path.join(data_dir, 'ground_truth.csv'))
+
+    t_start = max(imu_df['timestamp_ns'].min(), gt_df['timestamp_ns'].min())
+    t_end = min(imu_df['timestamp_ns'].max(), gt_df['timestamp_ns'].max())
+
+    imu = imu_df[(imu_df['timestamp_ns'] >= t_start) & (imu_df['timestamp_ns'] <= t_end)].reset_index(drop=True)
+    gt = gt_df[(gt_df['timestamp_ns'] >= t_start) & (gt_df['timestamp_ns'] <= t_end)].reset_index(drop=True)
+
+    # 1. Run Direct Ground Truth Update EKF (Full Rate 16.5 Hz)
+    print("\n--- Running Direct GT Update EKF (Full 16.5 Hz Rate) ---")
+    res_df, metrics = run_gt_ekf(imu, gt, step_size=1)
+
+    print("=========================================================")
+    print("  EXPERIMENT 0: DIRECT GT UPDATES EKF BENCHMARK RESULTS  ")
+    print("=========================================================")
+    print(f"Overall ATE RMSE:     {metrics['ate_rmse_m']:.4f} m ({metrics['ate_rmse_m']*100:.2f} cm)")
+    print(f"Mean Position Error:  {metrics['mean_error_m']:.4f} m ({metrics['mean_error_m']*100:.2f} cm)")
+    print(f"Median Error:         {metrics['median_error_m']:.4f} m")
+    print(f"Max Position Error:   {metrics['max_error_m']:.4f} m")
+    print(f"Per-axis RMSE:        X={metrics['rmse_x_m']:.4f}m, Y={metrics['rmse_y_m']:.4f}m, Z={metrics['rmse_z_m']:.4f}m")
+    print("=========================================================")
+
+    # 2. GT Subsampling Rate Sensitivity
+    print("\n--- Running GT Update Rate Sensitivity Study ---")
+    gt_sub_results = {}
+    steps = [(1, 16.5), (10, 1.65), (50, 0.33), (100, 0.16)]
+    for step, rate in steps:
+        _, m_sub = run_gt_ekf(imu, gt, step_size=step)
+        gt_sub_results[f"{rate:.2f}_Hz"] = m_sub['ate_rmse_m']
+        print(f"  GT Rate {rate:5.2f} Hz -> EKF ATE RMSE: {m_sub['ate_rmse_m']:.4f} m ({m_sub['ate_rmse_m']*100:.2f} cm)")
+
+    # Save outputs
+    res_df.to_csv(os.path.join(exp_dir, 'fused_trajectory.csv'), index=False)
+
+    out_metrics = {
+        'experiment': '00_ekf_direct_gt_updates',
+        'full_rate_metrics': {
+            'ate_rmse_m': metrics['ate_rmse_m'],
+            'mean_error_m': metrics['mean_error_m'],
+            'median_error_m': metrics['median_error_m'],
+            'max_error_m': metrics['max_error_m'],
+            'rmse_x_m': metrics['rmse_x_m'],
+            'rmse_y_m': metrics['rmse_y_m'],
+            'rmse_z_m': metrics['rmse_z_m']
+        },
+        'gt_subsampling_ablation': gt_sub_results
+    }
+
+    with open(os.path.join(exp_dir, 'results.json'), 'w') as f:
+        json.dump(out_metrics, f, indent=2)
+
+    plots_dir = os.path.join(exp_dir, 'plots')
+    os.makedirs(plots_dir, exist_ok=True)
+
+    # Plot 1: 3D Trajectory
+    fig = plt.figure(figsize=(10, 7), dpi=300)
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot(gt['p_x'], gt['p_y'], gt['p_z'], 'k-', label='Ground Truth', linewidth=2.0)
+    ax.plot(res_df['p_x'], res_df['p_y'], res_df['p_z'], 'r--', label=f'EKF Direct GT Updates ({metrics["ate_rmse_m"]*100:.2f} cm)', linewidth=1.5)
+    ax.set_title("Exp 0: Direct Ground Truth Update EKF (3D Trajectory)", fontweight='bold')
+    ax.legend()
+    plt.savefig(os.path.join(plots_dir, '01_trajectory_3d_exp0.png'))
+    plt.close()
+
+    # Plot 2: Position Components over Time
+    fig, axes = plt.subplots(3, 1, figsize=(10, 8), sharex=True, dpi=300)
+    t_sec = res_df['t_sec']
+    gt_t_sec = (gt['timestamp_ns'] - t_start) / 1e9
+    for i, col in enumerate(['p_x', 'p_y', 'p_z']):
+        axes[i].plot(gt_t_sec, gt[col], 'k-', label='Ground Truth', linewidth=1.8)
+        axes[i].plot(t_sec, res_df[col], 'r--', label='EKF Estimate', linewidth=1.2)
+        axes[i].set_ylabel(f"{col.upper()} [m]", fontweight='bold')
+        axes[i].legend()
+    axes[2].set_xlabel("Time [s]", fontweight='bold')
+    fig.suptitle("Exp 0: Position Tracking Per Axis (Direct GT Updates)", fontweight='bold')
+    plt.savefig(os.path.join(plots_dir, '02_position_components_exp0.png'))
+    plt.close()
+
+    # Plot 3: Euclidean Error Over Time
+    fig, ax = plt.subplots(figsize=(10, 4.5), dpi=300)
+    ax.plot(t_sec, metrics['euc_errors'] * 100, color='#1f77b4', linewidth=1.2, label='Euclidean Error [cm]')
+    ax.axhline(metrics['ate_rmse_m'] * 100, color='red', linestyle='--', label=f'RMSE ({metrics["ate_rmse_m"]*100:.2f} cm)')
+    ax.set_title("Exp 0: Absolute Position Error Over Time (Direct GT Updates)", fontweight='bold')
+    ax.set_xlabel("Time [s]", fontweight='bold')
+    ax.set_ylabel("Error [cm]", fontweight='bold')
+    ax.legend()
+    plt.savefig(os.path.join(plots_dir, '03_position_error_exp0.png'))
+    plt.close()
+
+    print(f"Generated Exp 0 results and figures in: {plots_dir}")
+
+
+if __name__ == '__main__':
+    main()

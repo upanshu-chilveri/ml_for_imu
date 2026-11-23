@@ -1,0 +1,7 @@
+{
+  "experiment": "04_four_baselines_comparison",
+  "baseline_1_classical_ate_m": 73768.63,
+  "baseline_2_raw_ekf_ate_m": 1.256976584430545,
+  "baseline_3_tinyml_ekf_ate_m": 2.208194755173467,
+  "baseline_4_adaptive_complete_ate_m": 1.9539838028401224
+}

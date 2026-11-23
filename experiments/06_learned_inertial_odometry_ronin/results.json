@@ -1,0 +1,40 @@
+{
+  "experiment": "06_learned_inertial_odometry_ronin",
+  "model_architecture": "1D Residual Temporal Convolutional Network (RoNIN ResNet-1D / TCN)",
+  "external_sensor_updates_during_eval": 0,
+  "training_time_sec": 52.47895073890686,
+  "dataset_split": {
+    "train_percent": 70,
+    "val_percent": 15,
+    "test_percent": 15,
+    "total_windows": 18390,
+    "train_samples": 12873,
+    "test_samples": 2759
+  },
+  "comparison_with_baselines": {
+    "baseline_1_classical_pure_imu_ate_m": 73768.63,
+    "ronin_pure_imu_full_ate_m": 4.4170783753786935,
+    "drift_reduction_factor": 16700.77452353911,
+    "percentage_improvement_over_b1": 99.99401225375152,
+    "baseline_2_raw_ekf_1hz_gnss_ate_m": 1.25697,
+    "exp_05_nn_ekf_1hz_gnss_ate_m": 1.35761
+  },
+  "full_trajectory_metrics": {
+    "ate_rmse_m": 4.4170783753786935,
+    "mean_error_m": 2.859039835269271,
+    "median_error_m": 1.1856361326626987,
+    "max_error_m": 11.381864386426876,
+    "rmse_x_m": 3.0307315974458553,
+    "rmse_y_m": 3.051227836668431,
+    "rmse_z_m": 1.0075991500696415
+  },
+  "held_out_test_set_metrics": {
+    "ate_rmse_m": 9.409920454811095,
+    "mean_error_m": 9.293994859894896,
+    "median_error_m": 9.492625127720846,
+    "max_error_m": 11.381864386426876,
+    "rmse_x_m": 6.375931241515408,
+    "rmse_y_m": 6.868910561496139,
+    "rmse_z_m": 0.8439025225148368
+  }
+}

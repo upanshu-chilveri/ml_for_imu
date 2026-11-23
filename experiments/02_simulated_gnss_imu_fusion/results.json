@@ -1,0 +1,11 @@
+{
+  "experiment": "02_simulated_gnss_imu_fusion",
+  "raw_gnss_ate_rmse_m": 1.63146995089476,
+  "ekf_fused_ate_rmse_m": 1.256976584430545,
+  "mean_error_m": 1.131005724584373,
+  "median_error_m": 1.0387767314069336,
+  "max_error_m": 4.107613248636127,
+  "rmse_x_m": 0.5946474286703307,
+  "rmse_y_m": 0.7788355281018471,
+  "rmse_z_m": 0.7872736433723416
+}

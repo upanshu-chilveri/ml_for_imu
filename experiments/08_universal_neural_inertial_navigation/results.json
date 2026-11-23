@@ -1,0 +1,31 @@
+{
+  "experiment": "08_universal_neural_inertial_navigation",
+  "model_architecture": "12-Channel Torque ResNet-1D + Bi-GRU + Adaptive EKF",
+  "mission_profile": {
+    "phase_1_gps_online_duration_sec": 50.0,
+    "phase_2_gps_blackout_duration_sec": 90.0,
+    "phase_3_gps_recovery_duration_sec": 44.1,
+    "total_mission_sec": 184.1
+  },
+  "mission_results": {
+    "full_trajectory_ate_m": 7.911888369558026,
+    "phase_1_gps_online_ate_m": 1.5460981360962713,
+    "phase_2_gps_blackout_ate_m": 10.972559430498842,
+    "phase_3_gps_recovered_ate_m": 3.592102883125759,
+    "max_drift_during_blackout_m": 16.569329338898125
+  },
+  "comparison_during_90s_blackout": {
+    "classical_pure_imu_ate_m": 73768.63,
+    "unassisted_ekf_outage_ate_m": 537.2094197051396,
+    "unassisted_ekf_max_drift_m": 1341.5400307415557,
+    "universal_nins_outage_ate_m": 10.972559430498842,
+    "outage_drift_reduction_vs_unassisted_percent": 97.95748938346588,
+    "outage_factor_reduction_vs_unassisted": 48.959353841541834
+  },
+  "held_out_test_set_results": {
+    "ate_rmse_m": 2.4319293964161464,
+    "rmse_x_m": 1.2159797285498504,
+    "rmse_y_m": 1.590816246783281,
+    "rmse_z_m": 1.3802092442376925
+  }
+}

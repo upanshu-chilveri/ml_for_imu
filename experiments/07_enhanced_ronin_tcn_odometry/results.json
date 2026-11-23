@@ -1,0 +1,42 @@
+{
+  "experiment": "07_enhanced_ronin_tcn_odometry",
+  "model_architecture": "Multi-Scale Dilated TCN (d=1, 2, 4) with End-to-End Integration Loss",
+  "external_sensor_updates_during_eval": 0,
+  "training_time_sec": 697.2781021595001,
+  "dataset_split": {
+    "train_percent": 70,
+    "val_percent": 15,
+    "test_percent": 15,
+    "total_windows": 18370,
+    "window_size_samples": 80,
+    "window_duration_sec": 0.4
+  },
+  "comparison_with_baselines": {
+    "baseline_1_classical_pure_imu_ate_m": 73768.63,
+    "exp_06_standard_ronin_full_ate_m": 4.4171,
+    "exp_06_standard_ronin_test_ate_m": 9.4099,
+    "exp_07_enhanced_ronin_full_ate_m": 9.64860778807202,
+    "exp_07_enhanced_ronin_test_ate_m": 19.76242974465161,
+    "improvement_over_exp06_full_percent": -118.43761264340907,
+    "improvement_over_exp06_test_percent": -110.01742573939795,
+    "drift_reduction_factor_over_b1": 7645.520640935952
+  },
+  "full_trajectory_metrics": {
+    "ate_rmse_m": 9.64860778807202,
+    "mean_error_m": 7.378790278704183,
+    "median_error_m": 4.107373940839364,
+    "max_error_m": 22.728799490443997,
+    "rmse_x_m": 5.793101453822527,
+    "rmse_y_m": 2.0837324688089858,
+    "rmse_z_m": 7.429244025618935
+  },
+  "held_out_test_set_metrics": {
+    "ate_rmse_m": 19.76242974465161,
+    "mean_error_m": 19.71371561071862,
+    "median_error_m": 19.473340982743704,
+    "max_error_m": 22.728799490443997,
+    "rmse_x_m": 12.218340684543213,
+    "rmse_y_m": 3.3804533486436674,
+    "rmse_z_m": 15.160419370399032
+  }
+}

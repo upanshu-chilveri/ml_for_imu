@@ -1,0 +1,32 @@
+{
+  "16.50_Hz": {
+    "update_rate_hz": 16.5,
+    "subsample_step": 1,
+    "ate_rmse_m": 0.03432997357175294
+  },
+  "3.30_Hz": {
+    "update_rate_hz": 3.3,
+    "subsample_step": 5,
+    "ate_rmse_m": 0.04637924787987912
+  },
+  "1.65_Hz": {
+    "update_rate_hz": 1.65,
+    "subsample_step": 10,
+    "ate_rmse_m": 0.08026620636112347
+  },
+  "0.82_Hz": {
+    "update_rate_hz": 0.82,
+    "subsample_step": 20,
+    "ate_rmse_m": 0.5626888443917111
+  },
+  "0.33_Hz": {
+    "update_rate_hz": 0.33,
+    "subsample_step": 50,
+    "ate_rmse_m": 3.490277399725842
+  },
+  "0.16_Hz": {
+    "update_rate_hz": 0.16,
+    "subsample_step": 100,
+    "ate_rmse_m": 55.31812747865669
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "experiment": "09_multi_sequence_universal_nins",
+  "architecture": "12-ch Torque ResNet-1D + Bi-GRU (Exp09 Multi-Seq)",
+  "dataset_split": {
+    "train_sequences": [
+      "MH_01_easy",
+      "MH_02_easy",
+      "MH_03_medium",
+      "V1_01_easy",
+      "V1_02_medium",
+      "V2_01_easy",
+      "V2_02_medium"
+    ],
+    "val_sequences": [
+      "MH_04_difficult",
+      "V1_03_difficult"
+    ],
+    "test_sequences": [
+      "MH_05_difficult",
+      "V2_03_difficult"
+    ],
+    "train_windows": 366608,
+    "val_windows": 20303,
+    "test_windows": 22551
+  },
+  "training": {
+    "epochs": 25,
+    "best_val_loss": 0.06174923987126235,
+    "augmentation": "3x yaw rotation on train sequences"
+  },
+  "test_results_per_sequence": {
+    "MH_05_difficult": {
+      "ate_rmse_m": 4.487259864807129,
+      "rmse_x_m": 2.9224228858947754,
+      "rmse_y_m": 1.7154614925384521,
+      "rmse_z_m": 2.9414491653442383,
+      "max_error_m": 7.35128116607666
+    },
+    "V2_03_difficult": {
+      "ate_rmse_m": 2.443922281265259,
+      "rmse_x_m": 1.4331746101379395,
+      "rmse_y_m": 1.8498338460922241,
+      "rmse_z_m": 0.7048941254615784,
+      "max_error_m": 4.422205448150635
+    }
+  },
+  "mean_test_ate_m": 3.465591073036194,
+  "val_vel_rmse_m_per_s": 0.6107203960418701,
+  "comparison_exp08_single_seq_test_ate_m": 2.4319
+}
